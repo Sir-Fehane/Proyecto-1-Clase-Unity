@@ -32,6 +32,10 @@ public class PlayerScript : MonoBehaviour
             weaponIndicator = FindFirstObjectByType<WeaponIndicator>();
         }
         CambiarArma(0);
+        if (DoomHUD.Instance != null)
+        {
+            DoomHUD.Instance.SetHealth(num_vidas, 5);
+        }
     }
 
     // Update is called once per frame
@@ -123,7 +127,15 @@ public class PlayerScript : MonoBehaviour
 
             Destroy(collision.gameObject);
 
-            vidas[num_vidas].SetActive(false);
+            if (DoomHUD.Instance != null)
+            {
+                DoomHUD.Instance.SetHealth(num_vidas, 5);
+            }
+
+            if (vidas != null && num_vidas >= 0 && num_vidas < vidas.Count && vidas[num_vidas] != null)
+            {
+                vidas[num_vidas].SetActive(false);
+            }
 
             if (num_vidas == 0)
             {
@@ -147,10 +159,17 @@ public class PlayerScript : MonoBehaviour
                 Destroy(collision.gameObject);
             break;
             case "heart":
-                num_vidas=5;
-                for (int i = 0; i < num_vidas; i++)
+                num_vidas = 5;
+                if (DoomHUD.Instance != null)
                 {
-                    vidas[i].SetActive(true);
+                    DoomHUD.Instance.SetHealth(num_vidas, 5);
+                }
+                if (vidas != null)
+                {
+                    for (int i = 0; i < vidas.Count; i++)
+                    {
+                        if (vidas[i] != null) vidas[i].SetActive(true);
+                    }
                 }
                 Destroy(collision.gameObject);
             break;

@@ -13,6 +13,9 @@ public class WeaponIndicator : MonoBehaviour
     public Sprite spriteDisparoTriple;    // Arma 1: Disparo múltiple / triple
     public Sprite spriteMisil;            // Arma 2: Misiles
 
+    [Header("Configuración")]
+    public bool mostrarTextoNombre = false; // El usuario pidió quitar el nombre
+
     [Header("Nombres de las Armas")]
     public string nombreNormal = "Basic";
     public string nombreTriple = "TriShot";
@@ -74,10 +77,19 @@ public class WeaponIndicator : MonoBehaviour
             }
         }
 
-        // Si hay componente de texto, actualizamos el nombre
+        // Si hay componente de texto, actualizamos el nombre (o lo ocultamos si está desactivado)
         if (armaTexto != null)
         {
-            armaTexto.text = nombreActual;
+            if (mostrarTextoNombre)
+            {
+                armaTexto.text = nombreActual;
+                armaTexto.gameObject.SetActive(true);
+            }
+            else
+            {
+                armaTexto.text = "";
+                armaTexto.gameObject.SetActive(false);
+            }
         }
     }
 }
