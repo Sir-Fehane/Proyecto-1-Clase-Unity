@@ -2,76 +2,98 @@ using System;
 using System.Collections.Generic;
 using System.Collections;
 using UnityEngine;
-using System.Security.Cryptography;
 
 public class PlayerScript : MonoBehaviour
 {
+    [Header("Proyectiles")]
     public GameObject bullet;
     public GameObject bullets;
     public GameObject missile;
-    Vector2 player_velocity;
-    int tipo_disparo;
+
+    [Header("Configuración de Control")]
+    public float moveSpeed = 0.25f;
+    public bool invertAimY = true;     
+    public bool invertMoveY = false;   
+    public int maxMissilesOnScreen = 4;   
+
+    [Header("Referencias HUD / Audio")]
     public SoundScript soundScript;
     public List<GameObject> vidas;
-    int num_vidas;
     public GameObject canvas_gameover;
-    private bool isInvulnerable = false;
-    private SpriteRenderer spriteRenderer;
-
     public WeaponIndicator weaponIndicator;
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    private Vector2 player_velocity;
+    private int tipo_disparo;
+    private int num_vidas;
+    private bool isInvulnerable = false;
+    private SpriteRenderer spriteRenderer;
+    private Rigidbody2D rb;
+
+    // Control de detección activa
+    private bool usandoMando = false;
+    private Vector3 ultimaPosMouse;
+
     void Start()
     {
         tipo_disparo = 0;
         num_vidas = 5;
         spriteRenderer = GetComponent<SpriteRenderer>();
+        rb = GetComponent<Rigidbody2D>();
+        ultimaPosMouse = Input.mousePosition;
+        MissileScript.activeMissiles.Clear();
 
         if (weaponIndicator == null)
         {
             weaponIndicator = FindFirstObjectByType<WeaponIndicator>();
         }
+
         CambiarArma(0);
+
         if (DoomHUD.Instance != null)
         {
             DoomHUD.Instance.SetHealth(num_vidas, 5);
         }
     }
 
-    // Update is called once per frame
     void Update()
     {
-        /*
-        if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1))
-        {
-            CambiarArma(0);
-        }
-        else if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2))
-        {
-            CambiarArma(1);
-        }
-        else if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3))
-        {
-            CambiarArma(2);
-        }
-        */
+        // --- 1. DETECCIÓN DE APUNTADO Y ROTACIÓN ---
         float aimX = Input.GetAxisRaw("RightStickH");
-        float aimY = Input.GetAxisRaw("RightStickV");
+        float rawAimY = Input.GetAxisRaw("RightStickV");
+        float aimY = invertAimY ? -rawAimY : rawAimY;
         Vector2 stickDirection = new Vector2(aimX, aimY);
 
-        if (stickDirection.sqrMagnitude > 0.04f)
+        // Detectar si el stick derecho se está moviendo
+        bool stickActivo = stickDirection.sqrMagnitude > 0.04f;
+
+        // Detectar si el mouse se movió en la pantalla
+        Vector3 deltaMouse = Input.mousePosition - ultimaPosMouse;
+        bool mouseActivo = deltaMouse.sqrMagnitude > 1f || Input.GetMouseButtonDown(0);
+        ultimaPosMouse = Input.mousePosition;
+
+        // Cambiar dinámicamente entre mando y ratón
+        if (stickActivo)
         {
+            usandoMando = true;
             float angle = Mathf.Atan2(stickDirection.y, stickDirection.x) * Mathf.Rad2Deg - 90f;
             transform.rotation = Quaternion.Euler(0, 0, angle);
         }
-        else
+        else if (mouseActivo)
+        {
+            usandoMando = false;
+        }
+
+        // Si estamos en modo ratón, seguir el cursor
+        if (!usandoMando)
         {
             Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             Vector3 mouseDirection = mousePos - transform.position;
             float angle = Mathf.Atan2(mouseDirection.y, mouseDirection.x) * Mathf.Rad2Deg - 90f;
             transform.rotation = Quaternion.Euler(0, 0, angle);
         }
+        // Nota: Si usandoMando es true y sueltas el stick, transform.rotation se queda intacto
 
+        // --- 2. DISPARO ---
         if (Input.GetKeyDown(KeyCode.Mouse0) || Input.GetKeyDown(KeyCode.JoystickButton5))
         {
             if (tipo_disparo == 0)
@@ -86,15 +108,32 @@ public class PlayerScript : MonoBehaviour
             }
             else if (tipo_disparo == 2)
             {
-                Instantiate(missile, transform.position, transform.rotation);
-                soundScript.PlayAudioBulletPowerUp();
+                if (MissileScript.ActiveCount < maxMissilesOnScreen)
+                {
+                    Instantiate(missile, transform.position, transform.rotation);
+                    soundScript.PlayAudioBulletPowerUp();
+                }
             }
-
         }
-        
-        float x = Input.GetAxisRaw("Horizontal");
-        float y = Input.GetAxisRaw("Vertical");
-        player_velocity = new Vector2(x, y).normalized * 0.25f;
+
+        // --- 3. MOVIMIENTO (WASD + Flechas + Joystick izquierdo) ---
+        float wasdX = 0f;
+        float wasdY = 0f;
+
+        if (Input.GetKey(KeyCode.D)) wasdX += 1f;
+        if (Input.GetKey(KeyCode.A)) wasdX -= 1f;
+        if (Input.GetKey(KeyCode.W)) wasdY += 1f;
+        if (Input.GetKey(KeyCode.S)) wasdY -= 1f;
+
+        float moveX = (wasdX != 0f) ? wasdX : Input.GetAxisRaw("Horizontal");
+        float moveY = (wasdY != 0f) ? wasdY : Input.GetAxisRaw("Vertical");
+
+        if (invertMoveY)
+        {
+            moveY = -moveY;
+        }
+
+        player_velocity = new Vector2(moveX, moveY).normalized * moveSpeed;
     }
 
     public void CambiarArma(int nuevoTipo)
@@ -114,7 +153,7 @@ public class PlayerScript : MonoBehaviour
         {
             if (isInvulnerable) return;
 
-            if(collision.gameObject.tag == "eball")
+            if (collision.gameObject.tag == "eball")
             {
                 soundScript.PlayAudioEballDeath();
             }
@@ -122,6 +161,7 @@ public class PlayerScript : MonoBehaviour
             {
                 soundScript.PlayAudioPlayerDies();   
             }
+
             num_vidas--;
             CambiarArma(0);
 
@@ -153,11 +193,11 @@ public class PlayerScript : MonoBehaviour
             case "powerup":
                 CambiarArma(1);
                 Destroy(collision.gameObject);
-            break;
+                break;
             case "powerupmissile":
                 CambiarArma(2);
                 Destroy(collision.gameObject);
-            break;
+                break;
             case "heart":
                 num_vidas = 5;
                 if (DoomHUD.Instance != null)
@@ -172,34 +212,32 @@ public class PlayerScript : MonoBehaviour
                     }
                 }
                 Destroy(collision.gameObject);
-            break;
+                break;
             default:
-            break;
+                break;
         }
     }
 
     private IEnumerator InvulnerabilityRoutine()
     {
         isInvulnerable = true;
-
-        float duration = 2f;         // Duración total (2 segundos)
-        float flashInterval = 0.1f;   // Frecuencia del parpadeo (cada 0.1s)
+        float duration = 2f;
+        float flashInterval = 0.1f;
         float elapsed = 0f;
 
         while (elapsed < duration)
         {
-            // Apaga y enciende el sprite alternadamente
             spriteRenderer.enabled = !spriteRenderer.enabled;
-
             yield return new WaitForSeconds(flashInterval);
             elapsed += flashInterval;
         }
+
         spriteRenderer.enabled = true;
         isInvulnerable = false;
     }
 
     void FixedUpdate()
     {
-        GetComponent<Rigidbody2D>().position += player_velocity;
+        rb.position += player_velocity;
     }
 }

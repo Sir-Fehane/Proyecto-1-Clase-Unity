@@ -1,10 +1,33 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class MissileScript : MonoBehaviour
 {
+    // Registro de misiles activos en pantalla
+    public static HashSet<MissileScript> activeMissiles = new HashSet<MissileScript>();
+
+    public static int ActiveCount
+    {
+        get
+        {
+            activeMissiles.RemoveWhere(m => m == null);
+            return activeMissiles.Count;
+        }
+    }
+
     public float launchDelay = 0.5f; // Tiempo de espera en segundos antes de acelerar
-    public float missileSpeed = 3f;   // Velocidad del misil
+    public float missileSpeed = 3.5f;   // Velocidad del misil
+
+    void OnEnable()
+    {
+        activeMissiles.Add(this);
+    }
+
+    void OnDisable()
+    {
+        activeMissiles.Remove(this);
+    }
 
     void Start()
     {
@@ -17,7 +40,11 @@ public class MissileScript : MonoBehaviour
     {
         yield return new WaitForSeconds(launchDelay);
 
-        GetComponent<Rigidbody2D>().linearVelocity = transform.up * missileSpeed;
+        Rigidbody2D rb = GetComponent<Rigidbody2D>();
+        if (rb != null)
+        {
+            rb.linearVelocity = transform.up * missileSpeed;
+        }
     }
 
     void OnBecameInvisible()
